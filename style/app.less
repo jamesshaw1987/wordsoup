@@ -1,0 +1,121 @@
+@import "bootstrap/mixins.less";
+@import "bootstrap/variables.less";
+@import "bootstrap/buttons.less";
+@import "bootstrap/grid.less";
+@import "bootstrap/scaffolding.less";
+
+div#blocker { 
+    display: table;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.9;
+    background-color: #000000;
+    z-index: 1000;
+
+    div {
+        display: table-cell;
+        colour: #ffffff;
+        font-size: 3em;
+        vertical-align: middle;
+        width: 100%;
+        text-align: center;
+    }
+}
+
+div#info {
+    
+    font-size: 2em;
+    
+    div#wordDisplay {
+        font-size: 0.7em;
+    }
+}
+
+.container {
+    
+    .row .btn.tile {
+        height: 4em;
+        width: 4em;
+        margin: 3px;
+        font-size: 180%;
+        color: #333333;
+
+        &.vhigh {
+            background-color: #ff2222;
+
+            &:hover {
+                background-color: #ff6666;
+                color: #111111;
+            }
+
+            &:active {
+                background-color: #ff2222;
+            }
+        }
+
+        &.high {
+            background-color: #ff6600;
+
+            &:hover {
+                background-color: #ffaa00;
+                color: #111111;
+            }
+
+            &:active {
+                background-color: #ff6600;
+            }
+        }
+
+        &.med {
+            background-color: #ffff00;
+
+            &:hover {
+                background-color: #ffff88;
+                color: #111111;
+            }
+
+            &:active {
+                background-color: #ffff00;
+            }
+        }
+
+        &.low {
+            background-color: #00a000;
+
+            &:hover {
+                background-color: #00e000;
+                color: #111111;
+            }
+
+            &:active {
+                background-color: #00a000;
+            }
+        }
+
+        &.vlow {
+            background-color: #0066ff;
+
+            &:hover {
+                background-color: #00aaff;
+                color: #111111;
+            }
+
+            &:active {
+                background-color: #0066ff;
+            }
+        }
+
+        &.selected {
+            background-color: #cccccc;
+            border: #333333 solid 0.25em;
+        }
+
+        sub {
+            font-size: 40%;
+            float: right;
+        }
+    }
+}
