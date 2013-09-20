@@ -68,18 +68,45 @@ define([
             if (count <= 0) {
                 clearInterval(counter);
                 blocker.style.display = "table";
-                if (update) {
-                    req.open("POST", "/couchdb/wordsoup");
-                    req.setRequestHeader("Content-type", "application/json");
-                    req.send(JSON.stringify(data));
+                req.open("GET", "/couchdb/wordsoup/record");
+                req.send("");
+                req.onload = function() {
+                    if (req.status == 200) {
+                        updateData(JSON.parse(req.responseText));
+                    }
                 }
-
-                alert("Score: " + total + "\nHigh score: " + data.high_score 
-                    + "\nBest word: " + data.best_word + ": " 
-                    + data.best_word_score + "\nLongest word: "
-                    + data.longest_word);
                 return;
             }
+        }
+
+        function updateData(storedData) {
+            if (update) {
+                update = false;
+                if (data.high_score > storedData.high_score) {
+                    storedData.high_score = data.high_score;
+                    update = true;
+                }
+                if (data.best_word_score > storedData.best_word_score) {
+                    storedData.best_word = data.best_word;
+                    storedData.best_word_score = data.best_word_score;
+                    update = true;
+                }
+                if (data.longest_word.length > storedData.longest_word.length) {
+                    storedData.longest_word = data.longest_word;
+                    update = true;
+                }
+            }
+            data = storedData;
+            if (update) {
+                req.open("POST", "/couchdb/wordsoup");
+                req.setRequestHeader("Content-type", "application/json");
+                req.send(JSON.stringify(data));
+            }
+            
+            alert("Score: " + total + "\nHigh score: " + data.high_score
+                + "\nBest word: " + data.best_word + ": "
+                + data.best_word_score + "\nLongest word: "
+                + data.longest_word);
         }
 
         blocker.addEventListener("click", function() {
