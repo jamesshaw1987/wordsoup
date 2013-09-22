@@ -116,6 +116,7 @@ define([
             scoreDisplay.innerHTML = total;
             update = false;
             tiles = getEmptyTiles();
+            clicked = [];
             render();
             count = 60;
             document.getElementById("timer").innerHTML = count;
