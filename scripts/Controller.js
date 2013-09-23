@@ -4,203 +4,207 @@ define([
     "lib/typo/typo",
     "text!./templates/grid.html"
 ], function(Tile, PubSub, Typo, template) {
-    return function() {
-        var tiles = getEmptyTiles();
-        function getEmptyTiles() {
-            return [
-                [0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0]
-            ];
-        }
-
-        var clicked = [];
-        var word = "";
-        var score = 0;
-        var total = 0;
-        var update = false;
-        var data;
-        var req = new XMLHttpRequest();
-        req.open("GET", "/couchdb/wordsoup/record");
-        req.send("");
-        req.onload = function() {
-            if (req.status == 200) {
-                data = JSON.parse(req.responseText);
+    var Controller = function() {
+        this.tiles = this.getEmptyTiles();
+        this.clicked = [];
+        this.word = "";
+        this.score = 0;
+        this.total = 0;
+        this.update = false;
+        this.data;
+        this.count = 60;
+        this.counter;
+        var _this = this;
+        this.req = new XMLHttpRequest();
+        this.req.open("GET", "/couchdb/wordsoup/record");
+        this.req.send("");
+        this.req.onload = function() {
+            if (this.status == 200) {
+                _this.data = JSON.parse(this.responseText);
             }
         };
         
         document.getElementById("container").innerHTML = template;
-        var grid = document.getElementById("grid");
-        var scoreDisplay = document.getElementById("scoreDisplay");
-        var wordDisplay = document.getElementById("wordDisplay");
-        function render() {
-            grid.innerHTML = "";
-            for (var i = 0; i < tiles.length; i++) {
-                var div = document.createElement("div");
-                div.className = "row";
-                for (var j = 0; j < tiles[i].length; j++) {
-                    if (!tiles[i][j]) {
-                        tiles[i][j] = new Tile(i, j);
-                    }
-                    div.appendChild(tiles[i][j].tile);
-                }
-                grid.appendChild(div);
-            }
-        }
+        this.grid = document.getElementById("grid");
+        this.scoreDisplay = document.getElementById("scoreDisplay");
+        this.wordDisplay = document.getElementById("wordDisplay");
 
-        render();
+        this.render();
 
-        var blocker = document.getElementById("blocker");
+        this.blocker = document.getElementById("blocker");
         var util = new Typo();
         var affData = util._readFile("scripts/lib/typo/dictionaries/en_GB/en_GB.aff");
         var dicData = util._readFile("scripts/lib/typo/dictionaries/en_GB/en_GB.dic");
-        var dic = new Typo("en_GB", affData, dicData);
+        this.dic = new Typo("en_GB", affData, dicData);
 
-        var count;
-        var counter;
-        function timer() {
-            count--;
-            document.getElementById("timer").innerHTML = count;
-            if (count <= 0) {
-                clearInterval(counter);
-                blocker.style.display = "table";
-                req.open("GET", "/couchdb/wordsoup/record");
-                req.send("");
-                req.onload = function() {
-                    if (req.status == 200) {
-                        updateData(JSON.parse(req.responseText));
-                    }
-                }
-                return;
-            }
-        }
-
-        function updateData(storedData) {
-            if (update) {
-                update = false;
-                if (data.high_score > storedData.high_score) {
-                    storedData.high_score = data.high_score;
-                    update = true;
-                }
-                if (data.best_word_score > storedData.best_word_score) {
-                    storedData.best_word = data.best_word;
-                    storedData.best_word_score = data.best_word_score;
-                    update = true;
-                }
-                if (data.longest_word.length > storedData.longest_word.length) {
-                    storedData.longest_word = data.longest_word;
-                    update = true;
-                }
-            }
-            data = storedData;
-            if (update) {
-                req.open("POST", "/couchdb/wordsoup");
-                req.setRequestHeader("Content-type", "application/json");
-                req.send(JSON.stringify(data));
-            }
-            
-            alert("Score: " + total + "\nHigh score: " + data.high_score
-                + "\nBest word: " + data.best_word + ": "
-                + data.best_word_score + "\nLongest word: "
-                + data.longest_word);
-        }
-
-        blocker.addEventListener("click", function() {
-            blocker.style.display = "none";
-            wordDisplay.innerHTML = "";
-            total = 0;
-            scoreDisplay.innerHTML = total;
-            update = false;
-            tiles = getEmptyTiles();
-            clicked = [];
-            render();
-            count = 60;
-            document.getElementById("timer").innerHTML = count;
-            counter = setInterval(timer, 1000);
+        this.blocker.addEventListener("click", function() {
+            this.style.display = "none";
+            _this.wordDisplay.innerHTML = "";
+            _this.total = 0;
+            _this.scoreDisplay.innerHTML = _this.total;
+            _this.update = false;
+            _this.tiles = _this.getEmptyTiles();
+            _this.clicked = [];
+            _this.render();
+            _this.count = 60;
+            document.getElementById("timer").innerHTML = _this.count;
+            _this.counter = setInterval(function() {
+                _this.timer()
+            }, 1000);
         }, false);
 
-        function submit() {
-            if (dic.check(word)) {
-                var multiplier = 1;
-                for (var i = 0; i < clicked.length; i++) {
-                    count += clicked[i].bonusTime;
-                    score += clicked[i].score;
-                    multiplier *= clicked[i].bonusScore;
-                    clicked[i].deselect();
-                    delete tiles[clicked[i].i][clicked[i].j];
-                }
-                score *= multiplier;
-                
-                var wordRow = document.createElement("div");
-                var wordSpan = document.createElement("span");
-                wordSpan.innerHTML = word + ": " + score;
-                wordRow.appendChild(wordSpan);
-                wordDisplay.appendChild(wordRow);
-
-                if (word.length > data.longest_word.length) {
-                    data.longest_word = word;
-                    update = true;
-                }
-                if (score > data.best_word_score) {
-                    data.best_word = word;
-                    data.best_word_score = score;
-                    update = true;
-                }
-                total += score;
-                scoreDisplay.innerHTML = total;
-                if (total > data.high_score) {
-                    data.high_score = total;
-                    update = true;
-                }
-                score = 0;
-                clicked = [];
-                render();
-            }
-        }
-
-        var click = function(message, tile) {
-            if (clicked.length) { 
-                var last = clicked[clicked.length-1];
-                var index = clicked.indexOf(tile);
-
-                if (last.i == tile.i && last.j == tile.j) {
-                    if (clicked.length >= 3) {
-                        submit();
-                    } else if (clicked.length == 1) {
-                        clicked[0].deselect();
-                        clicked.pop();
-                    }
-                } else if (index > -1) {
-                    for (var i = clicked.length - 1; i > index; i--) {
-                        clicked[i].deselect();
-                        clicked.pop();
-                    }
-                    word = word.substring(0, clicked.length);
-                } else if ((last.i == tile.i && (last.j == tile.j-1 || last.j == tile.j+1)) || 
-                    ((last.i == tile.i-1 && tile.j >= last.j-1 && tile.j <= last.j+1) || (last.i == tile.i+1 && tile.j >= last.j-1 && tile.j <= last.j+1))) {
-                    
-                    clicked.push(tile);
-                    tile.select();
-                    word += tile.letter;
-                } else {
-                    for (var i = 0; i < clicked.length; i++) {
-                        clicked[i].deselect();
-                    }
-                    clicked = [tile];
-                    tile.select();
-                    word = tile.letter;
-                }
-            } else {
-                clicked.push(tile);
-                tile.select();
-                word = tile.letter;
-            }
-        }
-
-        PubSub.subscribe("TILE CLICKED", click);
+        PubSub.subscribe("TILE CLICKED", function(message, tile) {
+            _this.click(message, tile);
+        });
     };
+
+    Controller.prototype.getEmptyTiles = function() {
+        return [
+            [0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0]
+        ];
+    };
+    Controller.prototype.render = function() {
+        this.grid.innerHTML = "";
+        for (var i = 0; i < this.tiles.length; i++) {
+            var div = document.createElement("div");
+            div.className = "row";
+            for (var j = 0; j < this.tiles[i].length; j++) {
+                if (!this.tiles[i][j]) {
+                    this.tiles[i][j] = new Tile(i, j);
+                }
+                div.appendChild(this.tiles[i][j].tile);
+            }
+            this.grid.appendChild(div);
+        }
+    }
+    Controller.prototype.timer = function() {
+        this.count--;
+        document.getElementById("timer").innerHTML = this.count;
+        if (this.count <= 0) {
+            clearInterval(this.counter);
+            this.blocker.style.display = "table";
+            var _this = this;
+            this.req.open("GET", "/couchdb/wordsoup/record");
+            this.req.send("");
+            this.req.onload = function() {
+                if (this.status == 200) {
+                    _this.updateData(JSON.parse(this.responseText));
+                }
+            }
+            return;
+        }
+    }
+    Controller.prototype.updateData = function(storedData) {
+        if (this.update) {
+            this.update = false;
+            if (this.data.high_score > storedData.high_score) {
+                storedData.high_score = this.data.high_score;
+                this.update = true;
+            }
+            if (this.data.best_word_score > storedData.best_word_score) {
+                storedData.best_word = this.data.best_word;
+                storedData.best_word_score = this.data.best_word_score;
+                this.update = true;
+            }
+            if (this.data.longest_word.length > storedData.longest_word.length) {
+                storedData.longest_word = this.data.longest_word;
+                this.update = true;
+            }
+        }
+        this.data = storedData;
+        if (this.update) {
+            this.req.open("POST", "/couchdb/wordsoup");
+            this.req.setRequestHeader("Content-type", "application/json");
+            this.req.send(JSON.stringify(this.data));
+        }
+        
+        alert("Score: " + this.total + "\nHigh score: " + this.data.high_score
+            + "\nBest word: " + this.data.best_word + ": "
+            + this.data.best_word_score + "\nLongest word: "
+            + this.data.longest_word);
+    }
+    Controller.prototype.submit = function() {
+        if (this.dic.check(this.word)) {
+            var multiplier = 1;
+            for (var i = 0; i < this.clicked.length; i++) {
+                this.count += this.clicked[i].bonusTime;
+                this.score += this.clicked[i].score;
+                multiplier *= this.clicked[i].bonusScore;
+                this.clicked[i].deselect();
+                delete this.tiles[this.clicked[i].i][this.clicked[i].j];
+            }
+            this.score *= multiplier;
+            
+            var wordRow = document.createElement("div");
+            var wordSpan = document.createElement("span");
+            wordSpan.innerHTML = this.word + ": " + this.score;
+            wordRow.appendChild(wordSpan);
+            this.wordDisplay.appendChild(wordRow);
+
+            if (this.word.length > this.data.longest_word.length) {
+                this.data.longest_word = this.word;
+                this.update = true;
+            }
+            if (this.score > this.data.best_word_score) {
+                this.data.best_word = this.word;
+                this.data.best_word_score = this.score;
+                this.update = true;
+            }
+            this.total += this.score;
+            this.scoreDisplay.innerHTML = this.total;
+            if (this.total > this.data.high_score) {
+                this.data.high_score = this.total;
+                this.update = true;
+            }
+            this.score = 0;
+            this.clicked = [];
+            this.render();
+        }
+    }
+    Controller.prototype.click = function(message, tile) {
+        if (this.clicked.length) {
+            var last = this.clicked[this.clicked.length-1];
+            var index = this.clicked.indexOf(tile);
+
+            if (last.i == tile.i && last.j == tile.j) {
+                if (this.clicked.length >= 3) {
+                    this.submit();
+                } else if (this.clicked.length == 1) {
+                    this.clicked[0].deselect();
+                    this.clicked.pop();
+                }
+            } else if (index > -1) {
+                for (var i = this.clicked.length - 1; i > index; i--) {
+                    this.clicked[i].deselect();
+                    this.clicked.pop();
+                }
+                this.word = this.word.substring(0, this.clicked.length);
+            } else if ((last.i == tile.i && (last.j == tile.j-1 || last.j == tile.j+1)) || 
+                ((last.i == tile.i-1 && tile.j >= last.j-1 && tile.j <= last.j+1) || (last.i == tile.i+1 && tile.j >= last.j-1 && tile.j <= last.j+1))) {
+                
+                this.clicked.push(tile);
+                tile.select();
+                this.word += tile.letter;
+            } else {
+                for (var i = 0; i < this.clicked.length; i++) {
+                    this.clicked[i].deselect();
+                }
+                this.clicked = [tile];
+                tile.select();
+                this.word = tile.letter;
+            }
+        } else {
+            this.clicked.push(tile);
+            tile.select();
+            this.word = tile.letter;
+        }
+    }
+
+    return Controller;
 });
