@@ -11,19 +11,22 @@ define([
         this.score = 0;
         this.total = 0;
         this.update = false;
-        this.data;
+        this.data = {
+            "best_word": "",
+            "best_word_score": 0,
+            "high_score": 0,
+            "longest_word": ""
+        };
         this.count = 60;
         this.counter;
         var _this = this;
-        this.req = new XMLHttpRequest();
-        this.req.open("GET", "/couchdb/wordsoup/record");
-        this.req.send("");
-        this.req.onload = function() {
-            if (this.status == 200) {
-                _this.data = JSON.parse(this.responseText);
-            }
-        };
-        
+
+        this.getXhr('/couchdb/wordsoup/record').then(function(response) {
+            _this.data = JSON.parse(response);
+        }, function(error) {
+            console.log(error);
+        });
+
         document.getElementById("container").innerHTML = template;
         this.grid = document.getElementById("grid");
         this.scoreDisplay = document.getElementById("scoreDisplay");
@@ -55,6 +58,43 @@ define([
 
         PubSub.subscribe("TILE CLICKED", function(message, tile) {
             _this.click(message, tile);
+        });
+    };
+
+    Controller.prototype.getXhr = function(resource) {
+        return new Promise(function(resolve, reject) {
+            var req = new XMLHttpRequest();
+            req.open("GET", resource);
+            req.onload = function() {
+                if (this.status == 200) {
+                    resolve(req.responseText);
+                } else {
+                    reject(Error(req.statusText));
+                }
+            };
+            req.onerror = function() {
+                reject(Error('Could not fetch data'));
+            }
+            req.send("");
+        });
+    };
+
+    Controller.prototype.postXhr = function(resource, data) {
+        return new Promise(function(resolve, reject) {
+            var req = new XMLHttpRequest();
+            req.open("POST", resource);
+            req.setRequestHeader("Content-type", "application/json");
+            req.onload = function() {
+                if (this.status == 200) {
+                    resolve(req.responseText);
+                } else {
+                    reject(Error(req.statusText));
+                }
+            };
+            req.onerror = function() {
+                reject(Error('Could not update data'));
+            };
+            req.send(JSON.stringify(data));
         });
     };
 
@@ -90,14 +130,12 @@ define([
             clearInterval(this.counter);
             this.blocker.style.display = "table";
             var _this = this;
-            this.req.open("GET", "/couchdb/wordsoup/record");
-            this.req.send("");
-            this.req.onload = function() {
-                if (this.status == 200) {
-                    _this.updateData(JSON.parse(this.responseText));
-                }
-            }
-            return;
+            this.getXhr('/couchdb/wordsoup/record').then(function(response) {
+                _this.updateData(JSON.parse(response));
+            }, function(error) {
+                console.log(error);
+                _this.updateData(_this.data);
+            });
         }
     }
     Controller.prototype.updateData = function(storedData) {
@@ -119,11 +157,12 @@ define([
         }
         this.data = storedData;
         if (this.update) {
-            this.req.open("POST", "/couchdb/wordsoup");
-            this.req.setRequestHeader("Content-type", "application/json");
-            this.req.send(JSON.stringify(this.data));
+            this.postXhr('/couchdb/wordsoup/record', this.data).then(function(response) {
+            }, function(error) {
+                console.log(error);
+            });
         }
-        
+
         alert("Score: " + this.total + "\nHigh score: " + this.data.high_score
             + "\nBest word: " + this.data.best_word + ": "
             + this.data.best_word_score + "\nLongest word: "
@@ -140,7 +179,7 @@ define([
                 delete this.tiles[this.clicked[i].i][this.clicked[i].j];
             }
             this.score *= multiplier;
-            
+
             var wordRow = document.createElement("div");
             var wordSpan = document.createElement("span");
             wordSpan.innerHTML = this.word + ": " + this.score;
@@ -185,9 +224,9 @@ define([
                     this.clicked.pop();
                 }
                 this.word = this.word.substring(0, this.clicked.length);
-            } else if ((last.i == tile.i && (last.j == tile.j-1 || last.j == tile.j+1)) || 
+            } else if ((last.i == tile.i && (last.j == tile.j-1 || last.j == tile.j+1)) ||
                 ((last.i == tile.i-1 && tile.j >= last.j-1 && tile.j <= last.j+1) || (last.i == tile.i+1 && tile.j >= last.j-1 && tile.j <= last.j+1))) {
-                
+
                 this.clicked.push(tile);
                 tile.select();
                 this.word += tile.letter;
